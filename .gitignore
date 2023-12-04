@@ -1,3 +1,12 @@
+### Custom ###
+# Parquet data files
+*.parquet
+
+# Record files in ./Records/
+/Records/*.xml
+
+### Default R project .gitignore ###
+
 # History files
 .Rhistory
 .Rapp.history
