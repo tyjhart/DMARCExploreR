@@ -1,18 +1,11 @@
-### Custom ###
-# Parquet data files
+# Rendered documents
+*.docx
+*.html
+*.pdf
+*.tex
+
+# Record exports
 *.parquet
-Parquet/*
-
-# Reports files in ./Reports/
-Reports/*
-
-# Rendered plots in ./Figures/
-Figures/*
-
-# Rendered tables in ./Tables/
-Tables/*
-
-### Default R project .gitignore ###
 
 # History files
 .Rhistory

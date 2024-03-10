@@ -1,0 +1,292 @@
+---
+title: "DMARC Aggregate Report"
+author: "DMARCExplorer.com"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    df_print: paged
+  word_document:
+    toc: yes
+    toc_depth: '2'
+  pdf_document:
+    fig_caption: yes
+    keep_tex: yes
+    number_sections: yes
+    toc: yes
+    toc_depth: 2
+margin: 1.0in
+header-includes:
+- \usepackage{times}
+- \usepackage{graphicx}
+- \usepackage{float}
+- \floatplacement{figure}{H}
+- \floatplacement{table}{H}
+params:
+  args: NA
+---
+```{r setup, echo=FALSE, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(arrow)
+library(lubridate)
+library(knitr)
+knitr::opts_chunk$set(
+  echo = FALSE, 
+  message = FALSE,
+  warning = FALSE,
+  collapse = TRUE,
+  results = 'asis',
+  fig.align = 'center',
+  fig.pos = 'ht',
+  dpi = 300,
+  fig.path='../Figures/',
+  dev=c('svg','png'),
+  out.width='\\textwidth'
+  )
+
+# Reporting period (days) ####
+# ***SET THIS OPTION***
+Days <- 14
+
+# GGPlot geometry options ####
+point_alpha = 0.75
+point_size = 4
+geom_line_size = 2
+
+# Parquet import  ####
+files <- list.files(path = "../Parquet/", pattern = "\\.parquet$", recursive = TRUE, full.names = TRUE)
+
+# Create the master dataframe ####
+df.Records <- data.frame()
+
+# Iterate over Parquet files and import ####
+for (parquetfile in files) {
+  
+  # Read Parquet file
+  ParquetContents <- read_parquet(parquetfile)
+  
+  # Add record to master dataframe
+  df.Records <- rbind(ParquetContents, df.Records)
+}
+
+# Filter on day range ####
+# Range is set above in a variable
+df.Records <- df.Records %>%
+  filter(Date_Range_Begin >= (today() - Days))
+
+# Summary statistics ####
+# Overall Counts
+DMARCSummary <- df.Records %>%
+  summarize(
+    TotalEmails = format(sum(Count), big.mark = ","),
+    TotalReports = format(n(), big.mark = ","),
+    ReportingOrganizations = format(length(levels(Org_Name)), big.mark = ",")
+    )
+
+# Summary
+DailyRecordCount <- df.Records %>%
+  group_by(Date_Range_Begin) %>%
+  summarize(
+    TotalDailyCount = sum(Count)
+    )
+DailySummary <- summary(DailyRecordCount$TotalDailyCount)
+
+# Complete failures
+Failed <- df.Records %>% filter(Policy_Eval_DKIM == "Fail" & Policy_Eval_SPF == "Fail")
+
+PercentageFailed <- round((sum(Failed$Count) / sum(df.Records$Count)) * 100, 2)
+```
+
+# Results
+
+This is an overall Domain-based Message Authentication, Reporting and Conformance (DMARC) summary for domain(s) and subdomain(s) shown below over the last `r Days` days:
+
+Reporting Dates: `r today() - Days` to `r today()` (`r Days` days)
+
+Median Daily Reported Emails: `r format(DailySummary[["Median"]], big.mark = ",")`
+
+Domain(s): `r str_sort(unique(df.Records$Domain))`
+
+Total Aggregated Emails: `r DMARCSummary$TotalEmails`
+
+Total Records in Aggregate Reports: `r format(count(df.Records)$n, big.mark = ",")`
+
+Count of Reporting Systems: `r DMARCSummary$ReportingOrganizations`
+
+Percentage of Failed Emails: `r paste0(PercentageFailed,"%")`
+
+# Domains
+
+Any domains or subdomains included in DMARC reports are included in the table below:
+
+```{r Domains}
+DomainsTable <- df.Records %>% 
+  group_by(Domain) %>% 
+  summarize(
+    Emails = sum(Count), 
+    Proportion = round((Emails / sum(df.Records$Count)) * 100, 2)
+    ) %>% 
+  arrange(desc(Emails))
+DomainsTable$Emails <- format(DomainsTable$Emails, big.mark = ",")
+kable(DomainsTable, col.names = c("Result","Emails","Percentage %"), caption = "Reported Domains")
+```
+
+Check your DNS records if any domains or subdomains are missing - this could indicate additional "_dmarc" records are needed.
+
+# Reporting Organizations
+
+Reporting organizations like Yahoo, Microsoft, Google, Internet Service Providers (ISP) like Comcast, and others receive email that your systems send. Those receiving systems send DMARC reports back to you on a regular basis. It's important to meet the email security requirements of the largest reporting organizations to ensure message delivery for your users. The table below shows reporting organizations by domain.
+
+```{r ReportingOrganizationProportions}
+for (domain in str_sort(unique(df.Records$Domain))) {
+  # Filter on domain / sub-domain
+  Temp <- df.Records %>%
+    filter(Domain == domain) %>%
+    group_by(Org_Name) %>% 
+    summarize(
+      Emails = sum(Count)
+      ) %>% 
+    mutate(
+      Proportion = round((Emails / sum(Emails)) * 100, 2)
+    ) %>%
+    arrange(desc(Emails)) %>%
+    top_n(., 10)
+  
+  Temp$Emails <- format(Temp$Emails, big.mark = ",")
+  
+  Table <- kable(Temp, col.names = c("Reporting Organization","Emails","Percentage %"), caption = paste0("Reporting Organizations (", domain, ")", sep = " "))
+  
+  print(Table)
+}
+```
+
+Remember, DMARC reporting is optional. Not all systems that receive mail send DMARC reports.
+
+# Disposition
+
+DMARC can have three possible dispositions for a message depending on configured policy: None, Quarantine, or Reject. None is the starting point while policies are in development. Quarantine is an intermediate step that doesn't disrupt mail flow too much while tuning. Reject is the final state once policies are solid. 
+
+## Overall 
+
+The tables below show the proportion of final disposition results for DMARC, SPF, and DKIM for all domains reported:
+
+```{r table:OverallDMARCDispositions, results = "asis"}
+DispositionResultsTable <- round((table(df.Records$Policy_Eval_Disposition) / sum(table(df.Records$Policy_Eval_Disposition))) * 100, 2)
+  
+kable(DispositionResultsTable[order(DispositionResultsTable, decreasing = TRUE)], col.names = c("Disposition","Percentage %"), caption = "Overall DMARC Disposition")
+```
+
+```{r table:OverallSPFDispositions, results = "asis"}
+DispositionResultsTable <- round((table(df.Records$Policy_Eval_SPF) / sum(table(df.Records$Policy_Eval_SPF))) * 100, 2)
+  
+kable(DispositionResultsTable[order(DispositionResultsTable, decreasing = TRUE)], col.names = c("Disposition","Percentage %"), caption = "Overall SPF Disposition")
+```
+
+```{r table:OverallDKIMDispositions, results = "asis"}
+DispositionResultsTable <- round((table(df.Records$Policy_Eval_DKIM) / sum(table(df.Records$Policy_Eval_DKIM))) * 100, 2)
+  
+kable(DispositionResultsTable[order(DispositionResultsTable, decreasing = TRUE)], col.names = c("Disposition","Percentage %"), caption = "Overall DKIM Disposition")
+```
+
+## DMARC Domains
+
+The following table(s) shows the disposition for each domain and subdomain reported:
+
+```{r table:DMARCDispositions, results = "asis"}
+for (domain in str_sort(unique(df.Records$Domain))) {
+  # Filter on domain / sub-domain
+  TempDomainRecords <- df.Records %>%
+    filter(Domain == domain)
+  
+  DispositionResultsTable <- round((table(TempDomainRecords$Policy_Eval_Disposition) / sum(table(TempDomainRecords$Policy_Eval_Disposition))) * 100, 2)
+  
+  DispositionTable <- kable(DispositionResultsTable[order(DispositionResultsTable, decreasing = TRUE)], col.names = c("Disposition","Percentage %"), caption = paste0("DMARC Disposition (", domain, ")", sep = " "))
+  
+  print(DispositionTable)
+}
+```
+
+## SPF Domains
+
+The table below shows the proportion of Sender Policy Framework (SPF) pass and fail results:
+
+```{r table:PolicyEvalSPF, results = "asis"}
+for (domain in str_sort(unique(df.Records$Domain))) {
+  
+  # Filter on domain / sub-domain
+  SPFResultsTable <- df.Records %>% 
+    filter(Domain == domain) %>%
+    group_by(Policy_Eval_SPF) %>% 
+    summarize(
+      Emails = sum(Count)
+      ) %>% 
+    mutate(
+      Proportion = round((Emails / sum(Emails)) * 100, 2)
+    ) %>%
+    arrange(desc(Emails))
+  
+  SPFResultsTable$Emails <- format(SPFResultsTable$Emails, big.mark = ",")
+  
+  SPFTable <- kable(SPFResultsTable, col.names = c("SPF Result","Emails","Percentage %"), caption = paste0("SPF Result Proportions (", domain, ")", sep = " "))
+  
+  print(SPFTable)
+}
+```
+
+## DKIM Domains
+
+The table below shows the proportion of Sender Policy Framework (SPF) pass and fail results:
+
+```{r table:PolicyEvalDKIM, results = "asis"}
+for (domain in str_sort(unique(df.Records$Domain))) {
+  
+  # Filter on domain / sub-domain
+  DKIMResultsTable <- df.Records %>% 
+    filter(Domain == domain) %>%
+    group_by(Policy_Eval_DKIM) %>% 
+    summarize(
+      Emails = sum(Count)
+      ) %>% 
+    mutate(
+      Proportion = round((Emails / sum(Emails)) * 100, 2)
+    ) %>%
+    arrange(desc(Emails))
+  
+  DKIMResultsTable$Emails <- format(DKIMResultsTable$Emails, big.mark = ",")
+  
+  DKIMTable <- kable(DKIMResultsTable, col.names = c("DKIM Result","Emails","Percentage %"), caption = paste0("DKIM Result Proportions (", domain, ")", sep = " "))
+  
+  print(DKIMTable)
+}
+```
+
+# Envelopes
+
+The "envelope_to" element is optional per RFC 7489. Many organizations don't include this information in their aggregate reports. The following table shows what information is available for "envelope_to":
+
+```{r table:EnvelopeToProportions, results = "asis"}
+EnvelopeToTable <- df.Records %>% 
+  group_by(Envelope_To) %>% 
+  summarize(
+    Emails = sum(Count), 
+    Proportion = round((Emails / sum(df.Records$Count)) * 100, 2)
+    ) %>% 
+  arrange(desc(Emails)) %>%
+  top_n(., 15)
+EnvelopeToTable$Emails <- format(EnvelopeToTable$Emails, big.mark = ",")
+kable(EnvelopeToTable, col.names = c("Envelope To","Emails","Percentage %"), caption = "Envelope To Proportions")
+```
+
+# Over Time
+
+```{r plot.Emails_Over_Time, fig.pos="H", fig.width=7, fig.height=5, results = "asis"}
+df.Records %>%
+  group_by(Date_Range_Begin) %>%
+  summarize(`Total Emails` = sum(Count)) %>%
+  ggplot(aes(Date_Range_Begin, `Total Emails`)) + 
+  geom_point() +
+  labs(
+    x = "", 
+    y = "Emails", 
+    title = "Email Aggregate Count Over Time"
+    )
+```
