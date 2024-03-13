@@ -90,7 +90,7 @@ If you don't have reports already, create [a bootstrap DMARC record](#starter-po
 ### Run R Code
 
 1. Double-click the DMARCExploreR.rproj file in the /RCode/ project directory. This will launch RStudio.
-1. In the lower-right window, select the "Files" tab, and open the ParseReports.R file.
+1. In the lower-right window, select the "Files" tab, and open the "ParseReports.R" file.
 1. Run the R code to parse the .XML files, using one of these methods:
     1. In the task bar above the R code, click the "Source" dropdown, then click the "Source" option
     1. While clicked in the window with R code, press Ctrl+Shift+S to run all code
@@ -101,7 +101,15 @@ If you don't have reports already, create [a bootstrap DMARC record](#starter-po
 
 ### Analysis
 
-This section is pending.
+Follow these steps to begin the analysis process and produce an HTML report:
+
+1. Open RStudio
+1. In the lower-right window, slect the "Files" tab, and open the "Visualize.Rmd" file
+1. In the taskbar above the RMarkdown code, click the "Run" dropdown, and select "Restart R and Run All Chunks"
+1. Allow the RMarkdown code to run
+1. In the taskbar above the RMarkdown code, click the "Knit" dropdown, and select "Knit to HTML"
+
+It's possible to knit other formats like Microsoft Word and PDF.
 
 ## DMARC
 

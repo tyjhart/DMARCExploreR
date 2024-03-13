@@ -323,6 +323,11 @@ rlog::log_info("Writing all records Parquet")
 ParquetPath <- paste0("../Parquet/",format(Sys.time(), "%Y-%m-%d-%H-%M-%S"),".parquet")
 write_parquet(df.Records, ParquetPath, compression = "gzip")
 
+# Write Tab-Separated file ####
+# UNCOMMENT THESE LINES FOR A TAB-SEPARATED TXT EXPORT
+#TabFilePath <- paste0("../",format(Sys.time(), "%Y-%m-%d-%H-%M-%S"),".txt")
+#write.table(df.Records, TabFilePath, row.names = FALSE, sep = "\t")
+
 # Quit ####
-rlog::log_info("Rscript completed parsing records, quitting.")
+rlog::log_info("Rscript completed parsing records.")
 rlog::log_info(LogSeparator)
