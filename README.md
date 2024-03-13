@@ -63,14 +63,14 @@ Follow these steps to install project dependencies:
     1. Open RStudio
     1. In the RStudio "Console" window at the bottom-left, run the following command:
         ```
-        install.packages(c("xml2","lubridate","tidyverse","arrow","rlog","R.utils"))
+        install.packages(c("xml2","lubridate","tidyverse","knitr","arrow","rlog","R.utils"))
         ```
+    1. If prompted, select "Yes" for compiling packages from source or using a personal library
 
-Complete these steps as well if you want to render reports into PDF format:
-
-1. [Download MikTeX](https://miktex.org/download)
-1. Install MikTeX, accepting default options
-1. Reboot to ensure that MikTeX files are added to PATH
+1. Complete these steps as well if you want to render reports into PDF format (not necessary to get started):
+    1. [Download MikTeX](https://miktex.org/download)
+    1. Install MikTeX, accepting default options
+    1. Reboot to ensure that MikTeX files are added to PATH
 
 HTML and Word document rendering is available by default in RStudio, but the PDF files look more professional and really look good when printed.
 
@@ -82,7 +82,7 @@ Clone this code repository to your local system.
 
 Hopefully by this point you've been collecting DMARC reports for a few days and have data to analyze. Follow these steps to move the XML files prior to analysis:
 
-1. Decompress all .gz and .zip files ([7-Zip](https://www.7-zip.org/download.html) is great for mass-decompression)
+1. Decompress all .gz and .zip DMARC report files ([7-Zip](https://www.7-zip.org/download.html) is great for mass-decompression)
 1. Copy decompressed directories and XML files to the /Reports/ project directory
 
 If you don't have reports already, create [a bootstrap DMARC record](#starter-policy) and start the collection process.
@@ -157,19 +157,25 @@ DMARC options are specified in policy using tags. Many of the tags are optional,
 
 Reference [section 6.3 in RFC-7489 for a detailed list of tags](https://www.rfc-editor.org/rfc/rfc7489#section-6.3), whether they are required, and what default values are assumed if the tag is omitted. 
 
-**NOTE**: Most of the tags have really good default values and don't need tweaking unless you're really looking to fine-tune DMARC reporting.
+**NOTE**: Most of the tags have sensible default values and don't need tweaking unless you're really looking to fine-tune DMARC reporting.
 
-### Disposition
+### Policy
 
-Messages sent from an organization with published DMARC policies can have one of three "dispositions" assigned, depending on what criteria they match and what is configured in the policy. These are the three possible dispositions, listed in increasing severity of response to a received message:
+One of three "policies" can be assigned by email senders, depending on how they want receivers to treat emails that don't pass both SPF and DKIM validation. These are the three possible dispositions, listed in increasing severity of response:
 
 1. None
 1. Quarantine
 1. Reject
 
-*None* is typically used when first starting DMARC implementation. No action is taken by the receiving system, other than sending a DMARC report back to the sender. *Quarantine* is an intermediate step, with messages that fail DMARC validation "quarantined", or sent to the recipient's Junk folder. There is no prescribed quarantine response for receiving systems, and some may choose not to deliver a message depending on other factors like sender reputation or spam policies. *Reject* does exactly what the name says - messages will not be delivered if they fail DMARC validation. An error message is typically sent back to the sender notifying them of the rejection, but it depends on the mail processing system.
+*None* is typically used when first starting DMARC implementation. No action is taken by the receiving system when both SPF and DKIM validation fail, other than sending a DMARC report back to the sender. *Quarantine* is an intermediate step, with messages that fail DMARC validation "quarantined", or sent to the recipient's Junk folder. There is no prescribed quarantine response for receiving systems, and some may choose not to deliver a message depending on other factors like sender reputation or spam policies. *Reject* does exactly what the name says - messages will not be delivered at all. An error message is typically sent back to the sender notifying them of the rejection, but that depends on the mail processing system.
 
 You can see what disposition is set in a DMARC record by looking for the "p=" [policy](#policy) tag. We already saw that 7-Eleven.com uses Quarantine as of late 2023.
+
+### Receiver Implementation Flexibility
+
+It's important to note that systems receiving your email aren't required to strictly follow your published DMARC policy. Section 6.7 of the RFP states, "*Mail Receivers MAY choose to reject or quarantine email even if email passes the DMARC mechanism check.*", and, "*Mail Receivers MAY choose to accept email that fails the DMARC mechanism check even if the Domain Owner has published a 'reject' policy.*", and, "*Final disposition of a message is always a matter of local policy.*" Receivers can blend DMARC policy and email threat intelligence to come to their own decision of how best to handle received emails.
+
+Receivers are also not required to strictly follow the reporting interval (RI) tag. The RFP requires email receivers running DMARC to be prepared to report AT LEAST once every 24hrs. Reporting more often is nice, but not required. Receivers are also, "strongly encouraged to begin [the reporting] period at 00:00 UTC, regardless of local timezone or time of report production, in order to facilitate correlation." 
 
 ## DKIM
 
