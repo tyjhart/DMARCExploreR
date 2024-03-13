@@ -45,7 +45,7 @@ knitr::opts_chunk$set(
 
 # Reporting period (days) ####
 # ***SET THIS OPTION***
-Days <- 14
+Days <- 30
 
 # GGPlot geometry options ####
 point_alpha = 0.75

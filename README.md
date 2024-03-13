@@ -101,7 +101,7 @@ If you don't have reports already, create [a bootstrap DMARC record](#starter-po
 
 ### Analysis
 
-!!!
+This section is pending.
 
 ## DMARC
 
