@@ -1,13 +1,6 @@
 ### Custom ###
 # Parquet data files
 *.parquet
-Parquet/*
-
-# Rendered plots in ./Figures/
-Figures/*
-
-# Rendered tables in ./Tables/
-Tables/*
 
 ### Default R project .gitignore ###
 
