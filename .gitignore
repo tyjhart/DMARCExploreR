@@ -3,9 +3,6 @@
 *.parquet
 Parquet/*
 
-# Reports files in ./Reports/
-Reports/*
-
 # Rendered plots in ./Figures/
 Figures/*
 
